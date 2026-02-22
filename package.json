@@ -1,0 +1,37 @@
+{
+  "name": "gitten",
+  "version": "0.1.0",
+  "description": "Focused micro-TUIs for git workflows",
+  "author": "wmartin",
+  "license": "MIT",
+  "keywords": ["git", "tui", "cli", "terminal", "ink"],
+  "module": "index.ts",
+  "type": "module",
+  "bin": {
+    "gitten": "./index.ts"
+  },
+  "files": [
+    "index.ts",
+    "src/"
+  ],
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "scripts": {
+    "start": "bun run index.ts",
+    "dev": "bun --hot run index.ts",
+    "compile": "bun build --compile index.ts --outfile gitten"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19.2.14"
+  },
+  "dependencies": {
+    "citty": "^0.2.1",
+    "ink": "6.7.0",
+    "react": "^19.2.4"
+  },
+  "patchedDependencies": {
+    "ink@6.7.0": "patches/ink@6.7.0.patch"
+  }
+}
