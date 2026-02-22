@@ -1,15 +1,25 @@
-# gitten
+# gitten 🐱
 
-To install dependencies:
+Focused micro-TUIs for git workflows.
 
-```bash
-bun install
+## Commands
+
+| Command | Description |
+|---|---|
+| `gitten stage` | Stage files, write a message, and commit |
+| `gitten log` | Browse history and inspect diffs |
+| `gitten branch` | List, switch, and delete branches |
+| `gitten stash` | Set work aside — list, preview, pop, apply, drop |
+
+## Flags
+
+| Flag | Description |
+|---|---|
+| `-a`, `--alt-screen` | Launch in alternate screen buffer |
+
+## Development
+
+```sh
+bun run dev       # run with hot reload
+bun run compile   # compile to binary
 ```
-
-To run:
-
-```bash
-bun run index.ts
-```
-
-This project was created using `bun init` in bun v1.3.9. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
