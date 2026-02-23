@@ -1,5 +1,5 @@
 {
-  "name": "gitten",
+  "name": "gitty",
   "version": "0.1.0",
   "description": "Focused micro-TUIs for git workflows",
   "author": "wmartin",
@@ -8,19 +8,24 @@
   "module": "index.ts",
   "type": "module",
   "bin": {
-    "gitten": "./index.ts"
+    "gitty": "./index.ts"
   },
   "files": [
     "index.ts",
     "src/"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/willmartian/gitty"
+  },
+  "homepage": "https://github.com/willmartian/gitty",
   "engines": {
     "bun": ">=1.0.0"
   },
   "scripts": {
     "start": "bun run index.ts",
     "dev": "bun --hot run index.ts",
-    "compile": "bun build --compile index.ts --outfile gitten"
+    "compile": "bun build --compile index.ts --outfile gitty"
   },
   "devDependencies": {
     "@types/bun": "latest",

@@ -200,6 +200,74 @@ export async function deleteBranch(name: string, force = false) {
   }
 }
 
+export interface Stash {
+  index: number;
+  ref: string;    // "stash@{0}"
+  hash: string;
+  branch: string;
+  message: string;
+  date: string;   // relative date e.g. "2 hours ago"
+}
+
+// git stash list uses git-log format specifiers.
+// %gd = reflog selector (stash@{n}), %h = short hash, %cr = relative date, %gs = reflog subject
+export async function getStashes(): Promise<Stash[]> {
+  try {
+    const fmt = '%gd|%h|%cr|%gs';
+    const raw = await Bun.$`git stash list --format=${fmt}`.text();
+    return raw.split('\n').filter(Boolean).map((line, i) => {
+      const parts = line.split('|');
+      const ref = parts[0] ?? '';
+      const hash = parts[1] ?? '';
+      const date = parts[2] ?? '';
+      const gs = parts.slice(3).join('|');
+
+      let branch = '';
+      let message = gs;
+      const wipMatch = gs.match(/^WIP on ([^:]+): (.+)$/);
+      const onMatch = gs.match(/^On ([^:]+): (.+)$/);
+      if (wipMatch) { branch = wipMatch[1]!; message = wipMatch[2]!; }
+      else if (onMatch) { branch = onMatch[1]!; message = onMatch[2]!; }
+
+      return { index: i, ref, hash, branch, message, date };
+    });
+  } catch (e) {
+    throw gitError(e);
+  }
+}
+
+export async function stashPush() {
+  try {
+    await Bun.$`git stash push`.quiet();
+  } catch (e) {
+    throw gitError(e);
+  }
+}
+
+export async function stashPop(ref: string) {
+  try {
+    await Bun.$`git stash pop ${ref}`.quiet();
+  } catch (e) {
+    throw gitError(e);
+  }
+}
+
+export async function stashApply(ref: string) {
+  try {
+    await Bun.$`git stash apply ${ref}`.quiet();
+  } catch (e) {
+    throw gitError(e);
+  }
+}
+
+export async function stashDrop(ref: string) {
+  try {
+    await Bun.$`git stash drop ${ref}`.quiet();
+  } catch (e) {
+    throw gitError(e);
+  }
+}
+
 export async function discard(file: GitFile) {
   try {
     if (file.x === '?' && file.y === '?') {

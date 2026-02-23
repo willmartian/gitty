@@ -1,13 +1,12 @@
 #!/usr/bin/env bun
 import { defineCommand, runMain } from 'citty';
-import stage from './src/commands/stage.ts';
-import log from './src/commands/log.ts';
-import branch from './src/commands/branch.ts';
-import stash from './src/commands/stash.ts';
+import stage from './src/commands/stage/stage.ts';
+import branch from './src/commands/branch/branch.ts';
+import stash from './src/commands/stash/stash.ts';
 
 const main = defineCommand({
   meta: {
-    name: 'gitten',
+    name: 'gitty',
     description: 'Focused micro-TUIs for git workflows',
   },
   args: {
@@ -15,8 +14,7 @@ const main = defineCommand({
   },
   subCommands: {
     stage,
-    log,
-    branch,
+branch,
     stash,
   },
 });

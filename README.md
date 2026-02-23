@@ -1,4 +1,4 @@
-# gitten 🐱
+# gitty 🐱
 
 Focused micro-TUIs for git workflows.
 
@@ -6,10 +6,9 @@ Focused micro-TUIs for git workflows.
 
 | Command | Description |
 |---|---|
-| `gitten stage` | Stage files, write a message, and commit |
-| `gitten log` | Browse history and inspect diffs |
-| `gitten branch` | List, switch, and delete branches |
-| `gitten stash` | Set work aside — list, preview, pop, apply, drop |
+| `gitty stage` | Stage files, write a message, and commit |
+| `gitty branch` | List, switch, and delete branches |
+| `gitty stash` | Set work aside — list, preview, pop, apply, drop |
 
 ## Flags
 

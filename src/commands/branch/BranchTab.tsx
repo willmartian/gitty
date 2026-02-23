@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { type Branch, getBranches, checkoutBranch, deleteBranch } from './git.ts';
+import { type Branch, getBranches, checkoutBranch, deleteBranch } from '../../git.ts';
+import { useTabState } from '../../hooks/useTabState.ts';
+import { FlashMessage } from '../../components/FlashMessage.tsx';
+import { StatusLine } from '../../components/StatusLine.tsx';
+import { Cursor } from '../../components/Cursor.tsx';
 
 export default function BranchTab() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cursor, setCursor] = useState(0);
-  const [busy, setBusy] = useState(false);
-  const [flash, setFlash] = useState<{ msg: string; ok: boolean } | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -24,24 +26,11 @@ export default function BranchTab() {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
+  const { busy, flash, showFlash, runOp } = useTabState(refresh);
+
   const cur = branches.length > 0 ? Math.min(cursor, branches.length - 1) : 0;
   const sel = branches[cur] ?? null;
   const maxNameLen = Math.max(...branches.map(b => b.name.length), 0);
-
-  const showFlash = (msg: string, ok = true) => {
-    setFlash({ msg, ok });
-    setTimeout(() => setFlash(null), 2500);
-  };
-
-  const runOp = (op: () => Promise<void>, msg: string) => {
-    if (busy) return;
-    setBusy(true);
-    void op()
-      .then(() => refresh())
-      .then(() => showFlash(msg))
-      .catch((e: unknown) => showFlash(e instanceof Error ? e.message : String(e), false))
-      .finally(() => setBusy(false));
-  };
 
   useInput((input, key) => {
     if (busy || loading) return;
@@ -73,8 +62,7 @@ export default function BranchTab() {
 
   return (
     <Box flexDirection="column">
-      {error && <Text color="red">✖ {error}</Text>}
-      {!error && loading && <Text dimColor>  Loading...</Text>}
+      <StatusLine error={error} loading={loading} />
 
       {!error && !loading && (
         <>
@@ -87,7 +75,7 @@ export default function BranchTab() {
 
             return (
               <Box key={b.name} paddingLeft={1}>
-                <Text color="cyan">{selected ? '▶' : ' '}</Text>
+                <Cursor selected={selected} />
                 <Text color="#ff69b4">{b.current ? ' * ' : '   '}</Text>
                 <Text
                   color={selected ? 'white' : (b.current ? 'white' : 'gray')}
@@ -110,15 +98,7 @@ export default function BranchTab() {
         </>
       )}
 
-      {flash && (
-        <Box marginTop={1}>
-          <Text color={flash.ok ? 'green' : 'red'}>{flash.ok ? '✔ ' : '✖ '}{flash.msg}</Text>
-        </Box>
-      )}
-
-      <Box marginTop={1} borderStyle="single" borderColor="gray" paddingLeft={1} paddingRight={1}>
-        <Text dimColor>enter checkout  d delete  D force delete  j/k ↑↓  r refresh  tab switch</Text>
-      </Box>
+      <FlashMessage flash={flash} />
     </Box>
   );
 }

@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { render } from 'ink';
-import Root, { type Tab } from './root.tsx';
+import App, { type Tab } from './App.tsx';
 
 const altScreen = process.argv.includes('-a') || process.argv.includes('--alt-screen');
 
@@ -10,7 +10,7 @@ export async function runTUI(initial: Tab) {
     process.stdout.write('\x1b[2J\x1b[H'); // clear and move cursor to top-left
   }
   try {
-    const { waitUntilExit } = render(createElement(Root, { initial }));
+    const { waitUntilExit } = render(createElement(App, { initial }));
     await waitUntilExit();
   } finally {
     if (altScreen) {
