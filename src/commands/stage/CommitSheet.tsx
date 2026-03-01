@@ -38,17 +38,6 @@ function buildMessage(values: Record<TextField, string>, breaking: boolean): str
   return body ? `${header}\n\n${body}` : header;
 }
 
-function buildPreview(values: Record<TextField, string>, breaking: boolean): string {
-  const { type, scope, description } = values;
-  if (!type && !description) return '';
-  let header = type || '';
-  if (type && scope) header += `(${scope})`;
-  if (type && breaking) header += '!';
-  if (type && description) header += `: ${description}`;
-  if (!type) header = description;
-  return header;
-}
-
 function InputDisplay({ value, placeholder, focused }: { value: string; placeholder?: string; focused: boolean }) {
   if (focused) return <Text color="white">{value}█</Text>;
   if (value) return <Text>{value}</Text>;
@@ -64,25 +53,26 @@ export default function CommitSheet({ onClose, onCommit, brand = false }: {
   const [fieldIdx, setFieldIdx] = useState(0);
   const [values, setValues] = useState<Record<TextField, string>>({ type: '', scope: '', description: '', body: '' });
   const [breaking, setBreaking] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   const field = ALL_FIELDS[fieldIdx]!;
   const canCommit = values.description.length > 0;
-  const preview = buildPreview(values, breaking);
+  const message = buildMessage(values, breaking);
 
   useInput((input, key) => {
+    if (confirming) {
+      if (input === 'y' || input === 'Y') { onCommit(message); onClose(); }
+      else { setConfirming(false); }
+      return;
+    }
+
     if (key.escape) { onClose(); return; }
 
-    if (key.downArrow) {
-      setFieldIdx(i => Math.min(ALL_FIELDS.length - 1, i + 1));
-      return;
-    }
-    if (key.upArrow) {
-      setFieldIdx(i => Math.max(0, i - 1));
-      return;
-    }
+    if (key.downArrow) { setFieldIdx(i => Math.min(ALL_FIELDS.length - 1, i + 1)); return; }
+    if (key.upArrow)   { setFieldIdx(i => Math.max(0, i - 1)); return; }
 
     if (key.return) {
-      if (canCommit) { onCommit(buildMessage(values, breaking)); onClose(); }
+      if (canCommit) setConfirming(true);
       return;
     }
 
@@ -107,37 +97,43 @@ export default function CommitSheet({ onClose, onCommit, brand = false }: {
         <Text bold color={brandColor}>COMMIT</Text>
       </Box>
 
-      {ALL_FIELDS.map((f, i) => {
-        const focused = i === fieldIdx;
+      {confirming ? (
+        <Box flexDirection="column" marginTop={1} gap={1}>
+          {message.split('\n').map((line, i) => (
+            <Text key={i} color={i === 0 ? 'white' : 'gray'}>{line || ' '}</Text>
+          ))}
+          <Box gap={1} marginTop={1}>
+            <Text dimColor>commit?</Text>
+            <Text bold color="white">y</Text><Text dimColor>/N</Text>
+          </Box>
+        </Box>
+      ) : (
+        ALL_FIELDS.map((f, i) => {
+          const focused = i === fieldIdx;
 
-        if (f === 'description') {
-          return (
-            <Box key={f} flexDirection="column" marginTop={1}>
-              <Box gap={1}>
-                <Text color={focused ? brandColor : 'gray'}>{focused ? '▶' : ' '}</Text>
-                <Text color={focused ? 'white' : 'gray'}>{LABELS[f]}</Text>
-                <InputDisplay value={values[f]} placeholder={PLACEHOLDERS[f]} focused={focused} />
+          if (f === 'description') {
+            return (
+              <Box key={f} flexDirection="column" marginTop={1}>
+                <Box gap={1}>
+                  <Text color={focused ? brandColor : 'gray'}>{focused ? '▶' : ' '}</Text>
+                  <Text color={focused ? 'white' : 'gray'}>{LABELS[f]}</Text>
+                  <InputDisplay value={values[f]} placeholder={PLACEHOLDERS[f]} focused={focused} />
+                </Box>
               </Box>
+            );
+          }
+
+          return (
+            <Box key={f} gap={1}>
+              <Text color={focused ? brandColor : 'gray'}>{focused ? '▶' : ' '}</Text>
+              <Text color={focused ? 'white' : 'gray'}>{LABELS[f]}</Text>
+              {f === 'breaking'
+                ? <Text color={breaking ? 'red' : (focused ? 'white' : 'gray')}>{breaking ? '[x]' : '[ ]'}</Text>
+                : <InputDisplay value={values[f]} placeholder={PLACEHOLDERS[f]} focused={focused} />
+              }
             </Box>
           );
-        }
-
-        return (
-          <Box key={f} gap={1}>
-            <Text color={focused ? brandColor : 'gray'}>{focused ? '▶' : ' '}</Text>
-            <Text color={focused ? 'white' : 'gray'}>{LABELS[f]}</Text>
-            {f === 'breaking'
-              ? <Text color={breaking ? 'red' : (focused ? 'white' : 'gray')}>{breaking ? '[x]' : '[ ]'}</Text>
-              : <InputDisplay value={values[f]} placeholder={PLACEHOLDERS[f]} focused={focused} />
-            }
-          </Box>
-        );
-      })}
-
-      {preview && (
-        <Box marginTop={1}>
-          <Text dimColor>  {preview}</Text>
-        </Box>
+        })
       )}
     </Section>
   );

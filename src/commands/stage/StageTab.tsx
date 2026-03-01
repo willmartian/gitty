@@ -9,6 +9,7 @@ import CommitSheet from './CommitSheet.tsx';
 import DiffViewer from './DiffViewer.tsx';
 import { Section } from '../../components/Section.tsx';
 import { useLog } from '../../hooks/useLog.ts';
+import { useConfirm } from '../../hooks/useConfirm.tsx';
 
 type Section = 'changes' | 'staged';
 interface Item { section: Section; file: GitFile; idx: number }
@@ -92,6 +93,7 @@ export default function StageTab({ cursor, onCursorChange, onRemoteOp }: {
   useEffect(() => { void refresh(); }, [refresh]);
 
   const { busy, flash, showFlash, runOp, runNetworkOp, progressMsg } = useTabState(refresh);
+  const { confirming, confirm, confirmEl } = useConfirm();
 
   const items: Item[] = [
     ...staged.map((f, i): Item => ({ section: 'staged', file: f, idx: i })),
@@ -103,7 +105,7 @@ export default function StageTab({ cursor, onCursorChange, onRemoteOp }: {
   const sel = items[cur] ?? null;
 
   useInput((input, key) => {
-    if (busy || loading || commitOpen || diffTarget) return;
+    if (busy || loading || commitOpen || diffTarget || confirming) return;
 
     if (key.upArrow || input === 'k') { onCursorChange(Math.max(0, cursor - 1)); return; }
     if (key.downArrow || input === 'j') { onCursorChange(Math.min(Math.max(0, totalItems - 1), cursor + 1)); return; }
@@ -127,8 +129,10 @@ export default function StageTab({ cursor, onCursorChange, onRemoteOp }: {
     }
 
     if ((input === 'd' || input === 'z') && section === 'changes') {
-      log({ action: 'discarded', detail: file.path });
-      runOp(() => discard(file), `Discarded: ${file.path}`);
+      confirm(`Discard changes to ${file.path}?`, () => {
+        log({ action: 'discarded', detail: file.path });
+        runOp(() => discard(file), `Discarded: ${file.path}`);
+      });
       return;
     }
 
@@ -190,6 +194,7 @@ export default function StageTab({ cursor, onCursorChange, onRemoteOp }: {
         </>
       )}
 
+      {confirmEl}
       <FlashMessage flash={flash} />
     </Box>
   );

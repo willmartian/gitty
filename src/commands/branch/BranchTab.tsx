@@ -8,6 +8,7 @@ import { FilterBar } from '../../components/FilterBar.tsx';
 import { StatusLine } from '../../components/StatusLine.tsx';
 import { Cursor } from '../../components/Cursor.tsx';
 import { Section } from '../../components/Section.tsx';
+import { useConfirm } from '../../hooks/useConfirm.tsx';
 
 export default function BranchTab({ cursor, onCursorChange }: {
   cursor: number;
@@ -32,6 +33,7 @@ export default function BranchTab({ cursor, onCursorChange }: {
   useEffect(() => { void refresh(); }, [refresh]);
 
   const { busy, flash, showFlash, runOp } = useTabState(refresh);
+  const { confirming, confirm, confirmEl } = useConfirm();
   const { filterOpen, query, filtered, openFilter, closeFilter, appendQuery, backspaceQuery } = useFilter(
     branches,
     (b, q) => b.name.toLowerCase().includes(q) || b.subject.toLowerCase().includes(q) || (b.upstream ?? '').toLowerCase().includes(q),
@@ -42,7 +44,7 @@ export default function BranchTab({ cursor, onCursorChange }: {
   const maxNameLen = Math.max(...filtered.map(b => b.name.length), 0);
 
   useInput((input, key) => {
-    if (busy || loading) return;
+    if (busy || loading || confirming) return;
 
     if (filterOpen) {
       if (key.escape) { closeFilter(); onCursorChange(0); return; }
@@ -74,7 +76,7 @@ export default function BranchTab({ cursor, onCursorChange }: {
 
     if (input === 'D') {
       if (sel.current) { showFlash('Cannot delete the current branch', false); return; }
-      runOp(() => deleteBranch(sel.name, true), `Force deleted ${sel.name}`);
+      confirm(`Force delete ${sel.name}?`, () => runOp(() => deleteBranch(sel.name, true), `Force deleted ${sel.name}`));
       return;
     }
   });
@@ -120,6 +122,7 @@ export default function BranchTab({ cursor, onCursorChange }: {
         </>
       )}
 
+      {confirmEl}
       <FlashMessage flash={flash} />
     </Box>
   );

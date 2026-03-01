@@ -8,6 +8,7 @@ import { FilterBar } from '../../components/FilterBar.tsx';
 import { StatusLine } from '../../components/StatusLine.tsx';
 import { Cursor } from '../../components/Cursor.tsx';
 import { Section } from '../../components/Section.tsx';
+import { useConfirm } from '../../hooks/useConfirm.tsx';
 
 export default function StashTab({ cursor, onCursorChange }: {
   cursor: number;
@@ -32,6 +33,7 @@ export default function StashTab({ cursor, onCursorChange }: {
   useEffect(() => { void refresh(); }, [refresh]);
 
   const { busy, flash, runOp } = useTabState(refresh);
+  const { confirming, confirm, confirmEl } = useConfirm();
   const { filterOpen, query, filtered, openFilter, closeFilter, appendQuery, backspaceQuery } = useFilter(
     stashes,
     (s, q) => s.message.toLowerCase().includes(q) || s.branch.toLowerCase().includes(q),
@@ -42,7 +44,7 @@ export default function StashTab({ cursor, onCursorChange }: {
   const maxMsgLen = Math.max(...filtered.map(s => s.message.length), 0);
 
   useInput((input, key) => {
-    if (busy || loading) return;
+    if (busy || loading || confirming) return;
 
     if (filterOpen) {
       if (key.escape) { closeFilter(); onCursorChange(0); return; }
@@ -76,7 +78,7 @@ export default function StashTab({ cursor, onCursorChange }: {
     }
 
     if (input === 'd') {
-      runOp(() => stashDrop(sel.ref), `Dropped ${sel.ref}`);
+      confirm(`Drop ${sel.ref}?`, () => runOp(() => stashDrop(sel.ref), `Dropped ${sel.ref}`));
       return;
     }
   });
@@ -112,6 +114,7 @@ export default function StashTab({ cursor, onCursorChange }: {
         </>
       )}
 
+      {confirmEl}
       <FlashMessage flash={flash} />
     </Box>
   );
