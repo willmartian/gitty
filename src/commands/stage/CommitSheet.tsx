@@ -6,18 +6,18 @@ import { brandColor } from '../../styles.ts';
 type TextField = 'type' | 'scope' | 'description' | 'body';
 type AnyField = TextField | 'breaking';
 
-const ALL_FIELDS: AnyField[] = ['type', 'scope', 'breaking', 'description', 'body'];
+const ALL_FIELDS: AnyField[] = ['type', 'scope', 'description', 'body', 'breaking'];
 
 const LABELS: Record<AnyField, string> = {
-  type:        'type   ',
-  scope:       'scope  ',
-  breaking:    '!      ',
-  description: 'desc   ',
-  body:        'body   ',
+  type:        'type    ',
+  scope:       'scope   ',
+  breaking:    'breaking',
+  description: 'desc    ',
+  body:        'body    ',
 };
 
 const PLACEHOLDERS: Partial<Record<TextField, string>> = {
-  type:        'feat',
+  type:        'feat, fix, chore…',
   scope:       'optional',
   description: 'short description',
   body:        'optional',
@@ -37,9 +37,20 @@ function buildMessage(values: Record<TextField, string>, breaking: boolean): str
   return body ? `${header}\n\n${body}` : header;
 }
 
+function buildPreview(values: Record<TextField, string>, breaking: boolean): string {
+  const { type, scope, description } = values;
+  if (!type && !description) return '';
+  let header = type || '';
+  if (type && scope) header += `(${scope})`;
+  if (type && breaking) header += '!';
+  if (type && description) header += `: ${description}`;
+  if (!type) header = description;
+  return header;
+}
+
 function InputDisplay({ value, placeholder, focused }: { value: string; placeholder?: string; focused: boolean }) {
   if (focused) return <Text color="white">{value}█</Text>;
-  if (value) return <Text color="white">{value}</Text>;
+  if (value) return <Text>{value}</Text>;
   return <Text dimColor>{placeholder ?? ''}</Text>;
 }
 
@@ -53,6 +64,7 @@ export default function CommitSheet({ onClose, onCommit }: {
 
   const field = ALL_FIELDS[fieldIdx]!;
   const canCommit = values.description.length > 0;
+  const preview = buildPreview(values, breaking);
 
   useInput((input, key) => {
     if (key.escape) { onClose(); return; }
@@ -87,20 +99,40 @@ export default function CommitSheet({ onClose, onCommit }: {
 
   return (
     <Section borderColor={brandColor} paddingLeft={1} paddingRight={1}>
-      <Text bold color="white">COMMIT</Text>
+      <Text bold color={brandColor}>COMMIT</Text>
+
       {ALL_FIELDS.map((f, i) => {
         const focused = i === fieldIdx;
+
+        if (f === 'description') {
+          return (
+            <Box key={f} flexDirection="column" marginTop={1}>
+              <Box gap={1}>
+                <Text color={focused ? brandColor : 'gray'}>{focused ? '▶' : ' '}</Text>
+                <Text color={focused ? 'white' : 'gray'}>{LABELS[f]}</Text>
+                <InputDisplay value={values[f]} placeholder={PLACEHOLDERS[f]} focused={focused} />
+              </Box>
+            </Box>
+          );
+        }
+
         return (
           <Box key={f} gap={1}>
-            <Text color="cyan">{focused ? '▶' : ' '}</Text>
+            <Text color={focused ? brandColor : 'gray'}>{focused ? '▶' : ' '}</Text>
             <Text color={focused ? 'white' : 'gray'}>{LABELS[f]}</Text>
             {f === 'breaking'
-              ? <Text color={breaking ? 'red' : (focused ? 'white' : 'gray')}>{breaking ? '✓' : '○'} breaking change</Text>
+              ? <Text color={breaking ? 'red' : (focused ? 'white' : 'gray')}>{breaking ? '[x]' : '[ ]'}</Text>
               : <InputDisplay value={values[f]} placeholder={PLACEHOLDERS[f]} focused={focused} />
             }
           </Box>
         );
       })}
+
+      {preview && (
+        <Box marginTop={1}>
+          <Text dimColor>  {preview}</Text>
+        </Box>
+      )}
     </Section>
   );
 }
