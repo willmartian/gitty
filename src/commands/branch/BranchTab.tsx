@@ -6,11 +6,10 @@ import { FlashMessage } from '../../components/FlashMessage.tsx';
 import { StatusLine } from '../../components/StatusLine.tsx';
 import { Cursor } from '../../components/Cursor.tsx';
 
-export default function BranchTab() {
+export default function BranchTab({ cursor, onCursorChange }: { cursor: number; onCursorChange: (n: number) => void }) {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [cursor, setCursor] = useState(0);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -35,8 +34,8 @@ export default function BranchTab() {
   useInput((input, key) => {
     if (busy || loading) return;
 
-    if (key.upArrow || input === 'k') { setCursor(c => Math.max(0, c - 1)); return; }
-    if (key.downArrow || input === 'j') { setCursor(c => Math.min(Math.max(0, branches.length - 1), c + 1)); return; }
+    if (key.upArrow || input === 'k') { onCursorChange(Math.max(0, cursor - 1)); return; }
+    if (key.downArrow || input === 'j') { onCursorChange(Math.min(Math.max(0, branches.length - 1), cursor + 1)); return; }
     if (input === 'r') { void refresh(); return; }
 
     if (!sel) return;

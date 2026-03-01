@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { type GitFile, type XY, getStatus, stage, stageAll, unstage, unstageAll, discard } from '../../git.ts';
+import { type GitFile, type XY, getStatus, stage, stageAll, unstage, unstageAll, discard, commit } from '../../git.ts';
 import { useTabState } from '../../hooks/useTabState.ts';
 import { FlashMessage } from '../../components/FlashMessage.tsx';
 import { StatusLine } from '../../components/StatusLine.tsx';
 import { Cursor } from '../../components/Cursor.tsx';
+import CommitSheet from './CommitSheet.tsx';
+import { Section } from '../../components/Section.tsx';
+import { useLog } from '../../hooks/useLog.ts';
 
 type Section = 'changes' | 'staged';
 interface Item { section: Section; file: GitFile; idx: number }
@@ -34,7 +37,7 @@ function FileRow({ file, section, selected }: {
   const name = file.origPath ? `${file.origPath} → ${file.path}` : file.path;
 
   return (
-    <Box paddingLeft={1}>
+    <Box>
       <Cursor selected={selected} />
       <Text> </Text>
       <Text color={color} bold={selected}>{label}</Text>
@@ -47,17 +50,26 @@ function SectionHead({ label, count }: { label: string; count: number }) {
   return (
     <Box>
       <Text bold color="white">{label}</Text>
-      <Text color="gray">  {count} file{count !== 1 ? 's' : ''}</Text>
+      <Text color="gray"> ({count})</Text>
     </Box>
   );
 }
 
-export default function StageTab() {
+export default function StageTab({ cursor, onCursorChange, onCommitOpenChange }: {
+  cursor: number;
+  onCursorChange: (n: number) => void;
+  onCommitOpenChange: (open: boolean) => void;
+}) {
+  const log = useLog();
+
   const [changes, setChanges] = useState<GitFile[]>([]);
   const [staged, setStaged] = useState<GitFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [cursor, setCursor] = useState(0);
+  const [commitOpen, setCommitOpen] = useState(false);
+
+  const openCommit = () => { setCommitOpen(true); onCommitOpenChange(true); };
+  const closeCommit = () => { setCommitOpen(false); onCommitOpenChange(false); };
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -78,8 +90,8 @@ export default function StageTab() {
   const { busy, flash, showFlash, runOp } = useTabState(refresh);
 
   const items: Item[] = [
-    ...changes.map((f, i): Item => ({ section: 'changes', file: f, idx: i })),
     ...staged.map((f, i): Item => ({ section: 'staged', file: f, idx: i })),
+    ...changes.map((f, i): Item => ({ section: 'changes', file: f, idx: i })),
   ];
 
   const totalItems = items.length;
@@ -87,68 +99,71 @@ export default function StageTab() {
   const sel = items[cur] ?? null;
 
   useInput((input, key) => {
-    if (busy || loading) return;
+    if (busy || loading || commitOpen) return;
 
-    if (key.upArrow || input === 'k') { setCursor(c => Math.max(0, c - 1)); return; }
-    if (key.downArrow || input === 'j') { setCursor(c => Math.min(Math.max(0, totalItems - 1), c + 1)); return; }
+    if (key.upArrow || input === 'k') { onCursorChange(Math.max(0, cursor - 1)); return; }
+    if (key.downArrow || input === 'j') { onCursorChange(Math.min(Math.max(0, totalItems - 1), cursor + 1)); return; }
     if (input === 'r') { void refresh(); return; }
 
     if (!sel) return;
     const { file, section } = sel;
 
-    if (input === ' ' || key.return) {
+    if (input === ' ') {
       if (section === 'changes') {
+        log({ action: 'staged', detail: file.path });
         runOp(() => stage(file.path), `Staged: ${file.path}`);
       } else {
+        log({ action: 'unstaged', detail: file.path });
         runOp(() => unstage(file.path), `Unstaged: ${file.path}`);
       }
       return;
     }
 
-    if (input === 's' && section === 'changes') {
-      runOp(() => stage(file.path), `Staged: ${file.path}`);
-      return;
-    }
-
-    if (input === 'u' && section === 'staged') {
-      runOp(() => unstage(file.path), `Unstaged: ${file.path}`);
-      return;
-    }
-
     if ((input === 'd' || input === 'z') && section === 'changes') {
+      log({ action: 'discarded', detail: file.path });
       runOp(() => discard(file), `Discarded: ${file.path}`);
       return;
     }
 
-    if (input === 'S') { runOp(stageAll, 'Staged all changes'); return; }
-    if (input === 'U') { runOp(unstageAll, 'Unstaged all'); return; }
+    if (input === 'S') { log({ action: 'staged', detail: 'all changes' }); runOp(stageAll, 'Staged all changes'); return; }
+    if (input === 'U') { log({ action: 'unstaged', detail: 'all' }); runOp(unstageAll, 'Unstaged all'); return; }
+
+    if (input === 'c' && staged.length > 0) { openCommit(); return; }
   });
 
   return (
     <Box flexDirection="column">
+      {commitOpen && (
+        <CommitSheet
+          onClose={closeCommit}
+          onCommit={(msg) => { log({ action: 'committed', detail: msg.split('\n')[0]! }); runOp(() => commit(msg), 'Committed!'); }}
+        />
+      )}
       <StatusLine error={error} loading={loading} />
 
       {!error && !loading && (
         <>
-          <SectionHead label="CHANGES" count={changes.length} />
-          {changes.length === 0
-            ? <Box paddingLeft={3}><Text dimColor>Clean</Text></Box>
-            : changes.map((f, i) => (
-                <FileRow key={`c:${f.path}`} file={f} section="changes"
-                  selected={sel?.section === 'changes' && sel.idx === i} />
-              ))
-          }
-
-          <Box marginTop={1} flexDirection="column">
+          <Section paddingLeft={1}>
             <SectionHead label="STAGED" count={staged.length} />
             {staged.length === 0
-              ? <Box paddingLeft={3}><Text dimColor>Nothing staged</Text></Box>
+              ? <Box paddingLeft={2}><Text dimColor>Nothing staged</Text></Box>
               : staged.map((f, i) => (
                   <FileRow key={`s:${f.path}`} file={f} section="staged"
-                    selected={sel?.section === 'staged' && sel.idx === i} />
+                    selected={!commitOpen && sel?.section === 'staged' && sel.idx === i} />
                 ))
             }
-          </Box>
+          </Section>
+
+          <Section paddingLeft={1}>
+            <SectionHead label="CHANGES" count={changes.length} />
+            {changes.length === 0
+              ? <Box paddingLeft={2}><Text dimColor>Clean</Text></Box>
+              : changes.map((f, i) => (
+                  <FileRow key={`c:${f.path}`} file={f} section="changes"
+                    selected={!commitOpen && sel?.section === 'changes' && sel.idx === i} />
+                ))
+            }
+          </Section>
 
           {changes.length === 0 && staged.length === 0 && (
             <Box marginTop={1}>
