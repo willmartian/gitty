@@ -181,6 +181,14 @@ export async function commit(message: string) {
   await git.commit(message);
 }
 
+export async function push() {
+  await git.push();
+}
+
+export async function pull() {
+  await git.pull();
+}
+
 export async function discard(file: GitFile) {
   if (file.x === '?' && file.y === '?') {
     await git.raw(['clean', '-f', '--', file.path]);

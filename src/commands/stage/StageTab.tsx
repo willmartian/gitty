@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { type GitFile, type XY, getStatus, stage, stageAll, unstage, unstageAll, discard, commit } from '../../git.ts';
+import { type GitFile, type XY, getStatus, stage, stageAll, unstage, unstageAll, discard, commit, push, pull } from '../../git.ts';
 import { useTabState } from '../../hooks/useTabState.ts';
 import { FlashMessage } from '../../components/FlashMessage.tsx';
 import { StatusLine } from '../../components/StatusLine.tsx';
@@ -129,6 +129,9 @@ export default function StageTab({ cursor, onCursorChange, onCommitOpenChange }:
     if (input === 'U') { log({ action: 'unstaged', detail: 'all' }); runOp(unstageAll, 'Unstaged all'); return; }
 
     if (input === 'c' && staged.length > 0) { openCommit(); return; }
+
+    if (input === 'p') { log({ action: 'pushed', detail: 'origin' }); runOp(push, 'Pushed'); return; }
+    if (input === 'P') { log({ action: 'pulled', detail: 'origin' }); runOp(pull, 'Pulled'); return; }
   });
 
   return (

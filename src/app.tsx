@@ -15,7 +15,7 @@ const HINTS: Record<Tab, [string, string][]> = {
   stage: [
     ['space', 'stage / unstage'], ['d', 'discard'],
     ['S', 'stage all'], ['U', 'unstage all'],
-    ['c', 'commit'], ['q', 'quit'],
+    ['c', 'commit'], ['p', 'push'], ['P', 'pull'], ['q', 'quit'],
   ],
   branch: [
     ['↵', 'checkout'], ['d', 'delete'], ['D', 'force delete'],
