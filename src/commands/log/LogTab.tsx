@@ -6,6 +6,7 @@ import { StatusLine } from '../../components/StatusLine.tsx';
 import { Cursor } from '../../components/Cursor.tsx';
 import { FilterBar } from '../../components/FilterBar.tsx';
 import { useFilter } from '../../hooks/useFilter.ts';
+import { Section } from '../../components/Section.tsx';
 
 const MAX_AUTHOR = 20;
 
@@ -47,10 +48,9 @@ function matchesQuery(c: ParsedCommit, q: string): boolean {
     || (c.description ?? '').toLowerCase().includes(lq);
 }
 
-export default function LogTab({ cursor, onCursorChange, onFilterOpenChange }: {
+export default function LogTab({ cursor, onCursorChange }: {
   cursor: number;
   onCursorChange: (n: number) => void;
-  onFilterOpenChange: (open: boolean) => void;
 }) {
   const [commits, setCommits] = useState<ParsedCommit[]>([]);
   const [conventional, setConventional] = useState(false);
@@ -77,8 +77,6 @@ export default function LogTab({ cursor, onCursorChange, onFilterOpenChange }: {
   useEffect(() => { void refresh(); }, [refresh]);
 
   const { filterOpen, query, filtered, openFilter, closeFilter, appendQuery, backspaceQuery } = useFilter(commits, matchesQuery);
-
-  useEffect(() => { onFilterOpenChange(filterOpen); }, [filterOpen]);
 
   const cur = filtered.length > 0 ? Math.min(cursor, filtered.length - 1) : 0;
 
@@ -112,42 +110,43 @@ export default function LogTab({ cursor, onCursorChange, onFilterOpenChange }: {
       {!error && !loading && (
         <>
           {filterOpen && <FilterBar query={query} />}
+          <Section paddingLeft={1}>
+            <Box gap={2}>
+              <Text> </Text>
+              <Text bold>{'hash'.padEnd(7)}</Text>
+              <Text bold>{'date'.padEnd(dateWidth)}</Text>
+              <Text bold>{'author'.padEnd(authorWidth)}</Text>
+              {conventional && <Text bold>{'type'.padEnd(typeWidth + 5)}</Text>}
+              {conventional && <Text bold>{'scope'.padEnd(scopeWidth)}</Text>}
+              <Text bold>{conventional ? 'description' : 'subject'}</Text>
+            </Box>
 
-          <Box paddingLeft={1} gap={2}>
-            <Text> </Text>
-            <Text bold>{'hash'.padEnd(7)}</Text>
-            <Text bold>{'date'.padEnd(dateWidth)}</Text>
-            <Text bold>{'author'.padEnd(authorWidth)}</Text>
-            {conventional && <Text bold>{'type'.padEnd(typeWidth + 5)}</Text>}
-            {conventional && <Text bold>{'scope'.padEnd(scopeWidth)}</Text>}
-            <Text bold>{conventional ? 'description' : 'subject'}</Text>
-          </Box>
-
-          {filtered.length === 0 && (
-            <Box paddingLeft={1}><Text dimColor>{query ? 'No matches' : 'No commits'}</Text></Box>
-          )}
-          {filtered.map((c, i) => {
-            const selected = i === cur;
-            const author = c.author.length > MAX_AUTHOR ? c.author.slice(0, MAX_AUTHOR - 1) + '…' : c.author;
-            const subject = conventional ? (c.description ?? c.subject) : c.subject;
-            return (
-              <Box key={c.hash} paddingLeft={1} gap={2}>
-                <Cursor selected={selected} />
-                <Text color="yellow">{c.hash}</Text>
-                <Text dimColor>{c.date.padEnd(dateWidth)}</Text>
-                <Text dimColor>{author.padEnd(authorWidth)}</Text>
-                {conventional && (
-                  <Text>
-                    <Text color="cyan">{(c.type ?? '').padEnd(typeWidth)}</Text>
-                    <Text>{c.type ? ` ${TYPE_EMOJI[c.type] ?? '  '}` : '   '}</Text>
-                    <Text>{c.breaking ? '❗' : '  '}</Text>
-                  </Text>
-                )}
-                {conventional && <Text dimColor>{(c.scope ?? '').padEnd(scopeWidth)}</Text>}
-                <Text color={selected ? 'white' : 'gray'}>{subject}</Text>
-              </Box>
-            );
-          })}
+            {filtered.length === 0 && (
+              <Text dimColor>{query ? 'No matches' : 'No commits'}</Text>
+            )}
+            {filtered.map((c, i) => {
+              const selected = i === cur;
+              const author = c.author.length > MAX_AUTHOR ? c.author.slice(0, MAX_AUTHOR - 1) + '…' : c.author;
+              const subject = conventional ? (c.description ?? c.subject) : c.subject;
+              return (
+                <Box key={c.hash} gap={2}>
+                  <Cursor selected={selected} />
+                  <Text color="yellow">{c.hash}</Text>
+                  <Text dimColor>{c.date.padEnd(dateWidth)}</Text>
+                  <Text dimColor>{author.padEnd(authorWidth)}</Text>
+                  {conventional && (
+                    <Text>
+                      <Text color="cyan">{(c.type ?? '').padEnd(typeWidth)}</Text>
+                      <Text>{c.type ? ` ${TYPE_EMOJI[c.type] ?? '  '}` : '   '}</Text>
+                      <Text>{c.breaking ? '❗' : '  '}</Text>
+                    </Text>
+                  )}
+                  {conventional && <Text dimColor>{(c.scope ?? '').padEnd(scopeWidth)}</Text>}
+                  <Text color={selected ? 'white' : 'gray'}>{subject}</Text>
+                </Box>
+              );
+            })}
+          </Section>
         </>
       )}
     </Box>

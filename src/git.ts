@@ -215,10 +215,28 @@ export async function getCommits(limit = 100): Promise<Commit[]> {
   });
 }
 
+export async function getDiff(file: GitFile, section: 'staged' | 'changes'): Promise<string> {
+  if (file.x === '?' && file.y === '?') return '(untracked file — stage to diff)';
+  if (section === 'staged') return git.raw(['diff', '--cached', '--', file.path]);
+  return git.raw(['diff', '--', file.path]);
+}
+
 export async function discard(file: GitFile) {
   if (file.x === '?' && file.y === '?') {
     await git.raw(['clean', '-f', '--', file.path]);
   } else {
     await git.checkout(['--', file.path]);
   }
+}
+
+export async function isGitRepo(): Promise<boolean> {
+  try {
+    return await simpleGit().checkIsRepo();
+  } catch {
+    return false;
+  }
+}
+
+export async function initRepo(): Promise<void> {
+  await simpleGit().init();
 }

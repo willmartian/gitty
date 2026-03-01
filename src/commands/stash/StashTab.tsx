@@ -7,11 +7,11 @@ import { FlashMessage } from '../../components/FlashMessage.tsx';
 import { FilterBar } from '../../components/FilterBar.tsx';
 import { StatusLine } from '../../components/StatusLine.tsx';
 import { Cursor } from '../../components/Cursor.tsx';
+import { Section } from '../../components/Section.tsx';
 
-export default function StashTab({ cursor, onCursorChange, onFilterOpenChange }: {
+export default function StashTab({ cursor, onCursorChange }: {
   cursor: number;
   onCursorChange: (n: number) => void;
-  onFilterOpenChange: (open: boolean) => void;
 }) {
   const [stashes, setStashes] = useState<Stash[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,8 +36,6 @@ export default function StashTab({ cursor, onCursorChange, onFilterOpenChange }:
     stashes,
     (s, q) => s.message.toLowerCase().includes(q) || s.branch.toLowerCase().includes(q),
   );
-
-  useEffect(() => { onFilterOpenChange(filterOpen); }, [filterOpen]);
 
   const cur = filtered.length > 0 ? Math.min(cursor, filtered.length - 1) : 0;
   const sel = filtered[cur] ?? null;
@@ -90,25 +88,27 @@ export default function StashTab({ cursor, onCursorChange, onFilterOpenChange }:
       {!error && !loading && (
         <>
           {filterOpen && <FilterBar query={query} />}
-          {filtered.length === 0 && (
-            <Box paddingLeft={1}><Text dimColor>{query ? 'No matches' : 'No stashes  (p to push current changes)'}</Text></Box>
-          )}
-          {filtered.map((s, i) => {
-            const selected = i === cur;
-            const truncatedMsg = s.message.length > 52 ? s.message.slice(0, 51) + '…' : s.message;
-            const ref = s.ref.replace('stash@{', '{');
+          <Section paddingLeft={1}>
+            {filtered.length === 0 && (
+              <Text dimColor>{query ? 'No matches' : 'No stashes  (p to push current changes)'}</Text>
+            )}
+            {filtered.map((s, i) => {
+              const selected = i === cur;
+              const truncatedMsg = s.message.length > 52 ? s.message.slice(0, 51) + '…' : s.message;
+              const ref = s.ref.replace('stash@{', '{');
 
-            return (
-              <Box key={s.ref} paddingLeft={1}>
-                <Cursor selected={selected} />
-                <Text color="gray">{' '}{ref.padEnd(6)}{'  '}</Text>
-                <Text color="gray">{s.hash}  </Text>
-                <Text dimColor>{s.date.padEnd(14)}  </Text>
-                {s.branch && <Text color="yellow">{s.branch}  </Text>}
-                <Text color={selected ? 'white' : 'gray'}>{truncatedMsg}</Text>
-              </Box>
-            );
-          })}
+              return (
+                <Box key={s.ref}>
+                  <Cursor selected={selected} />
+                  <Text color="gray">{' '}{ref.padEnd(6)}{'  '}</Text>
+                  <Text color="gray">{s.hash}  </Text>
+                  <Text dimColor>{s.date.padEnd(14)}  </Text>
+                  {s.branch && <Text color="yellow">{s.branch}  </Text>}
+                  <Text color={selected ? 'white' : 'gray'}>{truncatedMsg}</Text>
+                </Box>
+              );
+            })}
+          </Section>
         </>
       )}
 

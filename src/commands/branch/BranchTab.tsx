@@ -7,11 +7,11 @@ import { FlashMessage } from '../../components/FlashMessage.tsx';
 import { FilterBar } from '../../components/FilterBar.tsx';
 import { StatusLine } from '../../components/StatusLine.tsx';
 import { Cursor } from '../../components/Cursor.tsx';
+import { Section } from '../../components/Section.tsx';
 
-export default function BranchTab({ cursor, onCursorChange, onFilterOpenChange }: {
+export default function BranchTab({ cursor, onCursorChange }: {
   cursor: number;
   onCursorChange: (n: number) => void;
-  onFilterOpenChange: (open: boolean) => void;
 }) {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,8 +36,6 @@ export default function BranchTab({ cursor, onCursorChange, onFilterOpenChange }
     branches,
     (b, q) => b.name.toLowerCase().includes(q) || b.subject.toLowerCase().includes(q) || (b.upstream ?? '').toLowerCase().includes(q),
   );
-
-  useEffect(() => { onFilterOpenChange(filterOpen); }, [filterOpen]);
 
   const cur = filtered.length > 0 ? Math.min(cursor, filtered.length - 1) : 0;
   const sel = filtered[cur] ?? null;
@@ -88,35 +86,37 @@ export default function BranchTab({ cursor, onCursorChange, onFilterOpenChange }
       {!error && !loading && (
         <>
           {filterOpen && <FilterBar query={query} />}
-          {filtered.length === 0 && (
-            <Box paddingLeft={1}><Text dimColor>{query ? 'No matches' : 'No branches'}</Text></Box>
-          )}
-          {filtered.map((b, i) => {
-            const selected = i === cur;
-            const truncatedSubject = b.subject.length > 52 ? b.subject.slice(0, 51) + '…' : b.subject;
+          <Section paddingLeft={1}>
+            {filtered.length === 0 && (
+              <Text dimColor>{query ? 'No matches' : 'No branches'}</Text>
+            )}
+            {filtered.map((b, i) => {
+              const selected = i === cur;
+              const truncatedSubject = b.subject.length > 52 ? b.subject.slice(0, 51) + '…' : b.subject;
 
-            return (
-              <Box key={b.name} paddingLeft={1}>
-                <Cursor selected={selected} />
-                <Text color="#ff69b4">{b.current ? ' * ' : '   '}</Text>
-                <Text
-                  color={selected ? 'white' : (b.current ? 'white' : 'gray')}
-                  bold={b.current}
-                >
-                  {b.name.padEnd(maxNameLen + 2)}
-                </Text>
-                <Text color="gray">{b.hash}  </Text>
-                <Text color={selected ? 'white' : 'gray'}>{truncatedSubject}</Text>
-                {b.upstream && (
-                  <Box marginLeft={2} gap={1}>
-                    <Text dimColor>{b.gone ? '(upstream gone)' : b.upstream}</Text>
-                    {!b.gone && b.ahead > 0 && <Text color="green">↑{b.ahead}</Text>}
-                    {!b.gone && b.behind > 0 && <Text color="red">↓{b.behind}</Text>}
-                  </Box>
-                )}
-              </Box>
-            );
-          })}
+              return (
+                <Box key={b.name}>
+                  <Cursor selected={selected} />
+                  <Text color="#ff69b4">{b.current ? ' * ' : '   '}</Text>
+                  <Text
+                    color={selected ? 'white' : (b.current ? 'white' : 'gray')}
+                    bold={b.current}
+                  >
+                    {b.name.padEnd(maxNameLen + 2)}
+                  </Text>
+                  <Text color="gray">{b.hash}  </Text>
+                  <Text color={selected ? 'white' : 'gray'}>{truncatedSubject}</Text>
+                  {b.upstream && (
+                    <Box marginLeft={2} gap={1}>
+                      <Text dimColor>{b.gone ? '(upstream gone)' : b.upstream}</Text>
+                      {!b.gone && b.ahead > 0 && <Text color="green">↑{b.ahead}</Text>}
+                      {!b.gone && b.behind > 0 && <Text color="red">↓{b.behind}</Text>}
+                    </Box>
+                  )}
+                </Box>
+              );
+            })}
+          </Section>
         </>
       )}
 

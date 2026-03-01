@@ -6,6 +6,7 @@ import { FlashMessage } from '../../components/FlashMessage.tsx';
 import { StatusLine } from '../../components/StatusLine.tsx';
 import { Cursor } from '../../components/Cursor.tsx';
 import CommitSheet from './CommitSheet.tsx';
+import DiffViewer from './DiffViewer.tsx';
 import { Section } from '../../components/Section.tsx';
 import { useLog } from '../../hooks/useLog.ts';
 
@@ -55,10 +56,9 @@ function SectionHead({ label, count }: { label: string; count: number }) {
   );
 }
 
-export default function StageTab({ cursor, onCursorChange, onCommitOpenChange, onRemoteOp }: {
+export default function StageTab({ cursor, onCursorChange, onRemoteOp }: {
   cursor: number;
   onCursorChange: (n: number) => void;
-  onCommitOpenChange: (open: boolean) => void;
   onRemoteOp?: () => void;
 }) {
   const log = useLog();
@@ -68,9 +68,12 @@ export default function StageTab({ cursor, onCursorChange, onCommitOpenChange, o
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [commitOpen, setCommitOpen] = useState(false);
+  const [diffTarget, setDiffTarget] = useState<{ file: GitFile; section: 'staged' | 'changes' } | null>(null);
+  const openDiff = (file: GitFile, section: 'staged' | 'changes') => setDiffTarget({ file, section });
+  const closeDiff = () => setDiffTarget(null);
 
-  const openCommit = () => { setCommitOpen(true); onCommitOpenChange(true); };
-  const closeCommit = () => { setCommitOpen(false); onCommitOpenChange(false); };
+  const openCommit = () => setCommitOpen(true);
+  const closeCommit = () => setCommitOpen(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -100,7 +103,7 @@ export default function StageTab({ cursor, onCursorChange, onCommitOpenChange, o
   const sel = items[cur] ?? null;
 
   useInput((input, key) => {
-    if (busy || loading || commitOpen) return;
+    if (busy || loading || commitOpen || diffTarget) return;
 
     if (key.upArrow || input === 'k') { onCursorChange(Math.max(0, cursor - 1)); return; }
     if (key.downArrow || input === 'j') { onCursorChange(Math.min(Math.max(0, totalItems - 1), cursor + 1)); return; }
@@ -133,6 +136,8 @@ export default function StageTab({ cursor, onCursorChange, onCommitOpenChange, o
     if (input === 'U') { log({ action: 'unstaged', detail: 'all' }); runOp(unstageAll, 'Unstaged all'); return; }
 
     if (input === 'c' && staged.length > 0) { openCommit(); return; }
+
+    if (key.return) { openDiff(file, section); return; }
   });
 
   return (
@@ -145,7 +150,15 @@ export default function StageTab({ cursor, onCursorChange, onCommitOpenChange, o
       )}
       <StatusLine error={error} loading={loading} progress={progressMsg} />
 
-      {!error && !loading && (
+      {diffTarget && (
+        <DiffViewer
+          file={diffTarget.file}
+          section={diffTarget.section}
+          onClose={closeDiff}
+        />
+      )}
+
+      {!diffTarget && !error && !loading && (
         <>
           <Section paddingLeft={1}>
             <SectionHead label="STAGED" count={staged.length} />
@@ -170,9 +183,9 @@ export default function StageTab({ cursor, onCursorChange, onCommitOpenChange, o
           </Section>
 
           {changes.length === 0 && staged.length === 0 && (
-            <Box marginTop={1}>
-              <Text dimColor>  No changes in working tree</Text>
-            </Box>
+            <Section paddingLeft={1}>
+              <Text dimColor>No changes in working tree</Text>
+            </Section>
           )}
         </>
       )}

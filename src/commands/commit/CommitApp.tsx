@@ -10,6 +10,7 @@ export default function CommitApp() {
 
   return (
     <CommitSheet
+      brand
       onClose={exit}
       onCommit={(msg) => {
         log({ action: 'committed', detail: msg.split('\n')[0]! });

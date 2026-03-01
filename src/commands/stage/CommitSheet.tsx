@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { Section } from '../../components/Section.tsx';
 import { brandColor } from '../../styles.ts';
+import { useInputLock } from '../../contexts/InputLock.tsx';
 
 type TextField = 'type' | 'scope' | 'description' | 'body';
 type AnyField = TextField | 'breaking';
@@ -54,10 +55,12 @@ function InputDisplay({ value, placeholder, focused }: { value: string; placehol
   return <Text dimColor>{placeholder ?? ''}</Text>;
 }
 
-export default function CommitSheet({ onClose, onCommit }: {
+export default function CommitSheet({ onClose, onCommit, brand = false }: {
   onClose: () => void;
   onCommit: (message: string) => void;
+  brand?: boolean;
 }) {
+  useInputLock();
   const [fieldIdx, setFieldIdx] = useState(0);
   const [values, setValues] = useState<Record<TextField, string>>({ type: '', scope: '', description: '', body: '' });
   const [breaking, setBreaking] = useState(false);
@@ -99,7 +102,10 @@ export default function CommitSheet({ onClose, onCommit }: {
 
   return (
     <Section borderColor={brandColor} paddingLeft={1} paddingRight={1}>
-      <Text bold color={brandColor}>COMMIT</Text>
+      <Box gap={1}>
+        {brand && <><Text bold color={brandColor}>gitty 🐈</Text><Text dimColor>·</Text></>}
+        <Text bold color={brandColor}>COMMIT</Text>
+      </Box>
 
       {ALL_FIELDS.map((f, i) => {
         const focused = i === fieldIdx;
