@@ -55,10 +55,11 @@ function SectionHead({ label, count }: { label: string; count: number }) {
   );
 }
 
-export default function StageTab({ cursor, onCursorChange, onCommitOpenChange }: {
+export default function StageTab({ cursor, onCursorChange, onCommitOpenChange, onRemoteOp }: {
   cursor: number;
   onCursorChange: (n: number) => void;
   onCommitOpenChange: (open: boolean) => void;
+  onRemoteOp?: () => void;
 }) {
   const log = useLog();
 
@@ -87,7 +88,7 @@ export default function StageTab({ cursor, onCursorChange, onCommitOpenChange }:
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const { busy, flash, showFlash, runOp } = useTabState(refresh);
+  const { busy, flash, showFlash, runOp, runNetworkOp, progressMsg } = useTabState(refresh);
 
   const items: Item[] = [
     ...staged.map((f, i): Item => ({ section: 'staged', file: f, idx: i })),
@@ -105,8 +106,8 @@ export default function StageTab({ cursor, onCursorChange, onCommitOpenChange }:
     if (key.downArrow || input === 'j') { onCursorChange(Math.min(Math.max(0, totalItems - 1), cursor + 1)); return; }
     if (input === 'r') { void refresh(); return; }
 
-    if (input === 'p') { log({ action: 'pushed', detail: 'origin' }); runOp(push, 'Pushed'); return; }
-    if (input === 'P') { log({ action: 'pulled', detail: 'origin' }); runOp(pull, 'Pulled'); return; }
+    if (input === 'p') { log({ action: 'pushed', detail: 'origin' }); runNetworkOp((onProgress) => push(({ stage, progress }) => onProgress(stage, progress)), 'Pushed', onRemoteOp); return; }
+    if (input === 'P') { log({ action: 'pulled', detail: 'origin' }); runNetworkOp((onProgress) => pull(({ stage, progress }) => onProgress(stage, progress)), 'Pulled', onRemoteOp); return; }
 
     if (!sel) return;
     const { file, section } = sel;
@@ -139,10 +140,10 @@ export default function StageTab({ cursor, onCursorChange, onCommitOpenChange }:
       {commitOpen && (
         <CommitSheet
           onClose={closeCommit}
-          onCommit={(msg) => { log({ action: 'committed', detail: msg.split('\n')[0]! }); runOp(() => commit(msg), 'Committed!'); }}
+          onCommit={(msg) => { log({ action: 'committed', detail: msg.split('\n')[0]! }); runOp(() => commit(msg), 'Committed!', onRemoteOp); }}
         />
       )}
-      <StatusLine error={error} loading={loading} />
+      <StatusLine error={error} loading={loading} progress={progressMsg} />
 
       {!error && !loading && (
         <>

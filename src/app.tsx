@@ -7,8 +7,9 @@ import { brandColor } from './styles.ts';
 import StageTab from './commands/stage/StageTab.tsx';
 import BranchTab from './commands/branch/BranchTab.tsx';
 import StashTab from './commands/stash/StashTab.tsx';
+import LogTab from './commands/log/LogTab.tsx';
 
-const COMMANDS = ['stage', 'branch', 'stash'] as const;
+const COMMANDS = ['stage', 'branch', 'stash', 'log'] as const;
 export type Tab = typeof COMMANDS[number];
 
 const HINTS: Record<Tab, [string, string][]> = {
@@ -25,6 +26,9 @@ const HINTS: Record<Tab, [string, string][]> = {
     ['↵', 'pop'], ['a', 'apply'], ['d', 'drop'], ['p', 'push'],
     ['q', 'quit'],
   ],
+  log: [
+    ['r', 'refresh'], ['q', 'quit'],
+  ],
 };
 
 export default function App({ initial = 'stage' }: { initial?: Tab }) {
@@ -36,8 +40,10 @@ export default function App({ initial = 'stage' }: { initial?: Tab }) {
   const cursorFor = (tab: Tab) => cursors[tab] ?? 0;
   const setCursorFor = (tab: Tab) => (n: number) => setCursors(c => ({ ...c, [tab]: n }));
 
+  const refreshRepoInfo = () => void getRepoInfo().then(setRepoInfo).catch(() => {});
+
   useEffect(() => {
-    void getRepoInfo().then(setRepoInfo).catch(() => {});
+    refreshRepoInfo();
   }, [active]);
 
   const { exit } = useApp();
@@ -84,9 +90,10 @@ export default function App({ initial = 'stage' }: { initial?: Tab }) {
         </Box>
         <HintBar hints={HINTS[active]} />
       </Section>
-      {active === 'stage'  && <StageTab cursor={cursorFor('stage')} onCursorChange={setCursorFor('stage')} onCommitOpenChange={setCommitOpen} />}
+      {active === 'stage'  && <StageTab cursor={cursorFor('stage')} onCursorChange={setCursorFor('stage')} onCommitOpenChange={setCommitOpen} onRemoteOp={refreshRepoInfo} />}
       {active === 'branch' && <BranchTab cursor={cursorFor('branch')} onCursorChange={setCursorFor('branch')} />}
       {active === 'stash'  && <StashTab cursor={cursorFor('stash')} onCursorChange={setCursorFor('stash')} />}
+      {active === 'log'    && <LogTab cursor={cursorFor('log')} onCursorChange={setCursorFor('log')} />}
     </Box>
   );
 }

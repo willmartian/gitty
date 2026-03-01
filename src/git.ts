@@ -181,12 +181,38 @@ export async function commit(message: string) {
   await git.commit(message);
 }
 
-export async function push() {
-  await git.push();
+export interface GitProgress {
+  stage: string;
+  progress: number;
 }
 
-export async function pull() {
-  await git.pull();
+export async function push(onProgress?: (p: GitProgress) => void) {
+  const g = onProgress
+    ? simpleGit({ progress: ({ stage, progress }) => onProgress({ stage, progress }) })
+    : git;
+  await g.push();
+}
+
+export async function pull(onProgress?: (p: GitProgress) => void) {
+  const g = onProgress
+    ? simpleGit({ progress: ({ stage, progress }) => onProgress({ stage, progress }) })
+    : git;
+  await g.pull();
+}
+
+export interface Commit {
+  hash: string;
+  date: string;
+  author: string;
+  subject: string;
+}
+
+export async function getCommits(limit = 100): Promise<Commit[]> {
+  const raw = await git.raw(['log', `--max-count=${limit}`, '--format=%h|%cr|%an|%s']);
+  return raw.split('\n').filter(Boolean).map(line => {
+    const [hash, date, author, ...rest] = line.split('|');
+    return { hash: hash ?? '', date: date ?? '', author: author ?? '', subject: rest.join('|') };
+  });
 }
 
 export async function discard(file: GitFile) {
