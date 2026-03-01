@@ -32,6 +32,10 @@
     "@types/react": "^19.2.14"
   },
   "dependencies": {
+    "@commitlint/config-conventional": "^20.4.2",
+    "@commitlint/lint": "^20.4.2",
+    "@commitlint/load": "^20.4.0",
+    "@commitlint/parse": "^20.4.1",
     "citty": "^0.2.1",
     "ink": "6.7.0",
     "react": "^19.2.4",

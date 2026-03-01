@@ -16,18 +16,18 @@ const HINTS: Record<Tab, [string, string][]> = {
   stage: [
     ['space', 'stage / unstage'], ['d', 'discard'],
     ['S', 'stage all'], ['U', 'unstage all'],
-    ['c', 'commit'], ['p', 'push'], ['P', 'pull'], ['q', 'quit'],
+    ['c', 'commit'], ['p', 'push'], ['P', 'pull'], ['esc', 'quit'],
   ],
   branch: [
     ['↵', 'checkout'], ['d', 'delete'], ['D', 'force delete'],
-    ['q', 'quit'],
+    ['f', 'filter'], ['esc', 'quit'],
   ],
   stash: [
     ['↵', 'pop'], ['a', 'apply'], ['d', 'drop'], ['p', 'push'],
-    ['q', 'quit'],
+    ['f', 'filter'], ['esc', 'quit'],
   ],
   log: [
-    ['r', 'refresh'], ['q', 'quit'],
+    ['f', 'filter'], ['r', 'refresh'], ['esc', 'quit'],
   ],
 };
 
@@ -36,6 +36,7 @@ export default function App({ initial = 'stage' }: { initial?: Tab }) {
   const [repoInfo, setRepoInfo] = useState<RepoInfo | null>(null);
   const [cursors, setCursors] = useState<Partial<Record<Tab, number>>>({});
   const [commitOpen, setCommitOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const cursorFor = (tab: Tab) => cursors[tab] ?? 0;
   const setCursorFor = (tab: Tab) => (n: number) => setCursors(c => ({ ...c, [tab]: n }));
@@ -49,8 +50,8 @@ export default function App({ initial = 'stage' }: { initial?: Tab }) {
   const { exit } = useApp();
 
   useInput((input, key) => {
-    if (commitOpen) return;
-    if (input === 'q' || key.escape) { exit(); return; }
+    if (commitOpen || filterOpen) return;
+    if (key.escape) { exit(); return; }
     if (key.tab && key.shift) {
       const idx = COMMANDS.indexOf(active);
       setActive(COMMANDS[Math.max(0, idx - 1)]!);
@@ -91,9 +92,9 @@ export default function App({ initial = 'stage' }: { initial?: Tab }) {
         <HintBar hints={HINTS[active]} />
       </Section>
       {active === 'stage'  && <StageTab cursor={cursorFor('stage')} onCursorChange={setCursorFor('stage')} onCommitOpenChange={setCommitOpen} onRemoteOp={refreshRepoInfo} />}
-      {active === 'branch' && <BranchTab cursor={cursorFor('branch')} onCursorChange={setCursorFor('branch')} />}
-      {active === 'stash'  && <StashTab cursor={cursorFor('stash')} onCursorChange={setCursorFor('stash')} />}
-      {active === 'log'    && <LogTab cursor={cursorFor('log')} onCursorChange={setCursorFor('log')} />}
+      {active === 'branch' && <BranchTab cursor={cursorFor('branch')} onCursorChange={setCursorFor('branch')} onFilterOpenChange={setFilterOpen} />}
+      {active === 'stash'  && <StashTab cursor={cursorFor('stash')} onCursorChange={setCursorFor('stash')} onFilterOpenChange={setFilterOpen} />}
+      {active === 'log'    && <LogTab cursor={cursorFor('log')} onCursorChange={setCursorFor('log')} onFilterOpenChange={setFilterOpen} />}
     </Box>
   );
 }

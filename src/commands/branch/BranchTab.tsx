@@ -2,11 +2,17 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { type Branch, getBranches, checkoutBranch, deleteBranch } from '../../git.ts';
 import { useTabState } from '../../hooks/useTabState.ts';
+import { useFilter } from '../../hooks/useFilter.ts';
 import { FlashMessage } from '../../components/FlashMessage.tsx';
+import { FilterBar } from '../../components/FilterBar.tsx';
 import { StatusLine } from '../../components/StatusLine.tsx';
 import { Cursor } from '../../components/Cursor.tsx';
 
-export default function BranchTab({ cursor, onCursorChange }: { cursor: number; onCursorChange: (n: number) => void }) {
+export default function BranchTab({ cursor, onCursorChange, onFilterOpenChange }: {
+  cursor: number;
+  onCursorChange: (n: number) => void;
+  onFilterOpenChange: (open: boolean) => void;
+}) {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,17 +32,33 @@ export default function BranchTab({ cursor, onCursorChange }: { cursor: number; 
   useEffect(() => { void refresh(); }, [refresh]);
 
   const { busy, flash, showFlash, runOp } = useTabState(refresh);
+  const { filterOpen, query, filtered, openFilter, closeFilter, appendQuery, backspaceQuery } = useFilter(
+    branches,
+    (b, q) => b.name.toLowerCase().includes(q) || b.subject.toLowerCase().includes(q) || (b.upstream ?? '').toLowerCase().includes(q),
+  );
 
-  const cur = branches.length > 0 ? Math.min(cursor, branches.length - 1) : 0;
-  const sel = branches[cur] ?? null;
-  const maxNameLen = Math.max(...branches.map(b => b.name.length), 0);
+  useEffect(() => { onFilterOpenChange(filterOpen); }, [filterOpen]);
+
+  const cur = filtered.length > 0 ? Math.min(cursor, filtered.length - 1) : 0;
+  const sel = filtered[cur] ?? null;
+  const maxNameLen = Math.max(...filtered.map(b => b.name.length), 0);
 
   useInput((input, key) => {
     if (busy || loading) return;
 
+    if (filterOpen) {
+      if (key.escape) { closeFilter(); onCursorChange(0); return; }
+      if (key.backspace || key.delete) { backspaceQuery(); onCursorChange(0); return; }
+      if (key.upArrow) { onCursorChange(Math.max(0, cursor - 1)); return; }
+      if (key.downArrow) { onCursorChange(Math.min(Math.max(0, filtered.length - 1), cursor + 1)); return; }
+      if (input && !key.ctrl && !key.meta && input.length === 1) { appendQuery(input); onCursorChange(0); return; }
+      return;
+    }
+
     if (key.upArrow || input === 'k') { onCursorChange(Math.max(0, cursor - 1)); return; }
-    if (key.downArrow || input === 'j') { onCursorChange(Math.min(Math.max(0, branches.length - 1), cursor + 1)); return; }
+    if (key.downArrow || input === 'j') { onCursorChange(Math.min(Math.max(0, filtered.length - 1), cursor + 1)); return; }
     if (input === 'r') { void refresh(); return; }
+    if (input === 'f') { openFilter(); return; }
 
     if (!sel) return;
 
@@ -65,10 +87,11 @@ export default function BranchTab({ cursor, onCursorChange }: { cursor: number; 
 
       {!error && !loading && (
         <>
-          {branches.length === 0 && (
-            <Box paddingLeft={1}><Text dimColor>No branches</Text></Box>
+          {filterOpen && <FilterBar query={query} />}
+          {filtered.length === 0 && (
+            <Box paddingLeft={1}><Text dimColor>{query ? 'No matches' : 'No branches'}</Text></Box>
           )}
-          {branches.map((b, i) => {
+          {filtered.map((b, i) => {
             const selected = i === cur;
             const truncatedSubject = b.subject.length > 52 ? b.subject.slice(0, 51) + '…' : b.subject;
 
