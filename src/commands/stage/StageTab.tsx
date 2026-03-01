@@ -105,6 +105,9 @@ export default function StageTab({ cursor, onCursorChange, onCommitOpenChange }:
     if (key.downArrow || input === 'j') { onCursorChange(Math.min(Math.max(0, totalItems - 1), cursor + 1)); return; }
     if (input === 'r') { void refresh(); return; }
 
+    if (input === 'p') { log({ action: 'pushed', detail: 'origin' }); runOp(push, 'Pushed'); return; }
+    if (input === 'P') { log({ action: 'pulled', detail: 'origin' }); runOp(pull, 'Pulled'); return; }
+
     if (!sel) return;
     const { file, section } = sel;
 
@@ -129,9 +132,6 @@ export default function StageTab({ cursor, onCursorChange, onCommitOpenChange }:
     if (input === 'U') { log({ action: 'unstaged', detail: 'all' }); runOp(unstageAll, 'Unstaged all'); return; }
 
     if (input === 'c' && staged.length > 0) { openCommit(); return; }
-
-    if (input === 'p') { log({ action: 'pushed', detail: 'origin' }); runOp(push, 'Pushed'); return; }
-    if (input === 'P') { log({ action: 'pulled', detail: 'origin' }); runOp(pull, 'Pulled'); return; }
   });
 
   return (
