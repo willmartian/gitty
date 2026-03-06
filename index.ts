@@ -5,6 +5,7 @@ import branch from './src/commands/branch/branch.ts';
 import stash from './src/commands/stash/stash.ts';
 import log from './src/commands/log/log.ts';
 import commit from './src/commands/commit/commit.ts';
+import worktree from './src/commands/worktree/worktree.ts';
 import { runTUI } from './src/tui.ts';
 
 const main = defineCommand({
@@ -12,7 +13,7 @@ const main = defineCommand({
     name: 'gitty',
     description: 'Focused micro-TUIs for git workflows',
   },
-  subCommands: { stage, branch, stash, log, commit },
+  subCommands: { stage, branch, stash, log, commit, worktree },
   async run() { await runTUI('stage'); },
 });
 

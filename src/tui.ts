@@ -1,7 +1,10 @@
-import { createElement, type ComponentType } from 'react';
+import { createElement, createContext, useContext, type ComponentType } from 'react';
 import { render } from 'ink';
-import App, { type Tab } from './App.tsx';
+import App, { type AppTab } from './App.tsx';
 import Postscript from './Postscript.tsx';
+
+const ClearContext = createContext<() => void>(() => {});
+export const useClear = () => useContext(ClearContext);
 
 async function altScreen(fn: () => Promise<void>) {
   process.stdout.write('\x1b[?1049h'); // enter alternate screen buffer
@@ -21,19 +24,22 @@ async function renderPostscript(): Promise<void> {
 }
 
 export async function runUI(Component: ComponentType, useAltScreen = true) {
-  const run = async () => {
-    const { waitUntilExit } = render(createElement(Component));
-    await waitUntilExit();
-  };
   if (useAltScreen) {
-    await altScreen(run);
+    await altScreen(async () => {
+      const { waitUntilExit } = render(createElement(Component));
+      await waitUntilExit();
+    });
   } else {
-    await run();
+    const clearRef = { current: () => {} };
+    const Wrapped = () => createElement(ClearContext.Provider, { value: () => clearRef.current() }, createElement(Component));
+    const { waitUntilExit, clear } = render(createElement(Wrapped));
+    clearRef.current = clear;
+    await waitUntilExit();
   }
   await renderPostscript();
 }
 
-export async function runTUI(initial: Tab) {
+export async function runTUI(initial: AppTab) {
   const AppWithTab = () => createElement(App, { initial });
   await runUI(AppWithTab);
 }

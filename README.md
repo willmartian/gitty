@@ -2,6 +2,8 @@
 
 Focused micro-TUIs for git workflows.
 
+![demo](demo.gif)
+
 ## Commands
 
 | Command | Description |

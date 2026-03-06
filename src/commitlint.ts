@@ -1,4 +1,5 @@
-import load, { type QualifiedConfig } from '@commitlint/load';
+import load from '@commitlint/load';
+import type { QualifiedConfig } from '@commitlint/types';
 import { CommitParser } from 'conventional-commits-parser';
 import conventionalCommits from 'conventional-changelog-conventionalcommits';
 

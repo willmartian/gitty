@@ -37,6 +37,8 @@
     "@commitlint/load": "^20.4.0",
     "@commitlint/parse": "^20.4.1",
     "citty": "^0.2.1",
+    "conventional-changelog-conventionalcommits": "^9.3.0",
+    "conventional-commits-parser": "^6.3.0",
     "ink": "6.7.0",
     "react": "^19.2.4",
     "shiki": "^4.0.0",

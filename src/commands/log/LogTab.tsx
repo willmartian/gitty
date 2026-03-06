@@ -1,12 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text, useInput, useApp } from 'ink';
 import { hasCommitlintConfig, parseConventional } from '../../commitlint.ts';
-import { type Commit, getCommits } from '../../git.ts';
+import { type Commit, getCommits, getLastCommitMessage, extractCommitBody, commit } from '../../git.ts';
 import { StatusLine } from '../../components/StatusLine.tsx';
-import { Cursor } from '../../components/Cursor.tsx';
 import { FilterBar } from '../../components/FilterBar.tsx';
+import { FlashMessage } from '../../components/FlashMessage.tsx';
 import { useFilter } from '../../hooks/useFilter.ts';
+import { useTabState } from '../../hooks/useTabState.ts';
+import { useLog } from '../../hooks/useLog.ts';
+import { Table } from '../../components/Table.tsx';
 import { Section } from '../../components/Section.tsx';
+import { ActionBar, Action } from '../../components/ActionBar.tsx';
+import CommitSheet, { type CommitValues } from '../stage/CommitSheet.tsx';
 
 const MAX_AUTHOR = 20;
 
@@ -48,10 +53,8 @@ function matchesQuery(c: ParsedCommit, q: string): boolean {
     || (c.description ?? '').toLowerCase().includes(lq);
 }
 
-export default function LogTab({ cursor, onCursorChange }: {
-  cursor: number;
-  onCursorChange: (n: number) => void;
-}) {
+export default function LogTab() {
+  const [cursor, setCursor] = useState(0);
   const [commits, setCommits] = useState<ParsedCommit[]>([]);
   const [conventional, setConventional] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -76,7 +79,27 @@ export default function LogTab({ cursor, onCursorChange }: {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
+  const { exit } = useApp();
+  const { busy, flash, runOp } = useTabState(refresh);
+  const log = useLog();
   const { filterOpen, query, filtered, openFilter, closeFilter, appendQuery, backspaceQuery } = useFilter(commits, matchesQuery);
+
+  const [amendValues, setAmendValues] = useState<CommitValues | null>(null);
+  const [amendMeta, setAmendMeta] = useState<{ hash: string; header: string } | null>(null);
+  const openAmend = async () => {
+    const raw = await getLastCommitMessage();
+    const header = raw.split('\n')[0] ?? '';
+    const parsed = await parseConventional(header);
+    setAmendValues({
+      type: parsed.type ?? '',
+      scope: parsed.scope ?? '',
+      description: parsed.description ?? header,
+      body: extractCommitBody(raw),
+      breaking: parsed.breaking,
+    });
+    setAmendMeta({ hash: commits[0]?.hash ?? '', header });
+  };
+  const closeAmend = () => { setAmendValues(null); setAmendMeta(null); };
 
   const cur = filtered.length > 0 ? Math.min(cursor, filtered.length - 1) : 0;
 
@@ -86,51 +109,61 @@ export default function LogTab({ cursor, onCursorChange }: {
   const scopeWidth = conventional ? Math.max(...commits.map(c => (c.scope ?? '').length), 5) : 0;
 
   useInput((input, key) => {
-    if (loading) return;
+    if (loading || busy || amendValues) return;
 
     if (filterOpen) {
-      if (key.escape) { closeFilter(); onCursorChange(0); return; }
-      if (key.backspace || key.delete) { backspaceQuery(); onCursorChange(0); return; }
-      if (key.upArrow) { onCursorChange(Math.max(0, cursor - 1)); return; }
-      if (key.downArrow) { onCursorChange(Math.min(Math.max(0, filtered.length - 1), cursor + 1)); return; }
-      if (input && !key.ctrl && !key.meta && input.length === 1) { appendQuery(input); onCursorChange(0); return; }
+      if (key.escape) { closeFilter(); setCursor(0); return; }
+      if (key.backspace || key.delete) { backspaceQuery(); setCursor(0); return; }
+      if (key.upArrow) { setCursor(Math.max(0, cursor - 1)); return; }
+      if (key.downArrow) { setCursor(Math.min(Math.max(0, filtered.length - 1), cursor + 1)); return; }
+      if (input && !key.ctrl && !key.meta && input.length === 1) { appendQuery(input); setCursor(0); return; }
       return;
     }
 
-    if (key.upArrow || input === 'k') { onCursorChange(Math.max(0, cursor - 1)); return; }
-    if (key.downArrow || input === 'j') { onCursorChange(Math.min(Math.max(0, filtered.length - 1), cursor + 1)); return; }
-    if (input === 'r') { void refresh(); return; }
-    if (input === 'f') { openFilter(); return; }
+    if (key.upArrow || input === 'k') { setCursor(Math.max(0, cursor - 1)); return; }
+    if (key.downArrow || input === 'j') { setCursor(Math.min(Math.max(0, filtered.length - 1), cursor + 1)); return; }
   });
 
   return (
-    <Box flexDirection="column">
-      <StatusLine error={error} loading={loading} />
+    <Box flexDirection="column" flexGrow={1}>
+      {amendValues && (
+        <CommitSheet
+          amend
+          initialValues={amendValues}
+          onClose={closeAmend}
+          onCommit={(msg) => {
+            const { hash, header } = amendMeta!;
+            const after = msg.split('\n')[0]!;
+            log({ action: 'amended', detail: `${hash}\nbefore: ${header}\nafter: ${after}` });
+            runOp(() => commit(msg, true), 'Amended!', closeAmend);
+          }}
+        />
+      )}
+      <Box flexGrow={1} flexDirection="column" overflow="hidden">
+        <StatusLine error={error} loading={loading} />
 
-      {!error && !loading && (
-        <>
-          {filterOpen && <FilterBar query={query} />}
-          <Section paddingLeft={1}>
-            <Box gap={2}>
-              <Text> </Text>
-              <Text bold>{'hash'.padEnd(7)}</Text>
-              <Text bold>{'date'.padEnd(dateWidth)}</Text>
-              <Text bold>{'author'.padEnd(authorWidth)}</Text>
-              {conventional && <Text bold>{'type'.padEnd(typeWidth + 5)}</Text>}
-              {conventional && <Text bold>{'scope'.padEnd(scopeWidth)}</Text>}
-              <Text bold>{conventional ? 'description' : 'subject'}</Text>
-            </Box>
-
-            {filtered.length === 0 && (
-              <Text dimColor>{query ? 'No matches' : 'No commits'}</Text>
-            )}
-            {filtered.map((c, i) => {
-              const selected = i === cur;
-              const author = c.author.length > MAX_AUTHOR ? c.author.slice(0, MAX_AUTHOR - 1) + '…' : c.author;
-              const subject = conventional ? (c.description ?? c.subject) : c.subject;
-              return (
-                <Box key={c.hash} gap={2}>
-                  <Cursor selected={selected} />
+        {!error && !loading && (
+          <>
+            {filterOpen && <FilterBar query={query} />}
+            <Section paddingLeft={1}>
+            <Table
+              rows={filtered}
+              cursor={cur}
+              gap={2}
+              getKey={(c) => c.hash}
+              empty={query ? 'No matches' : 'No commits'}
+              header={<>
+                <Text bold>{'hash'.padEnd(7)}</Text>
+                <Text bold>{'date'.padEnd(dateWidth)}</Text>
+                <Text bold>{'author'.padEnd(authorWidth)}</Text>
+                {conventional && <Text bold>{'type'.padEnd(typeWidth + 5)}</Text>}
+                {conventional && <Text bold>{'scope'.padEnd(scopeWidth)}</Text>}
+                <Text bold>{conventional ? 'description' : 'subject'}</Text>
+              </>}
+              renderRow={(c, selected) => {
+                const author = c.author.length > MAX_AUTHOR ? c.author.slice(0, MAX_AUTHOR - 1) + '…' : c.author;
+                const subject = conventional ? (c.description ?? c.subject) : c.subject;
+                return (<>
                   <Text color="yellow">{c.hash}</Text>
                   <Text dimColor>{c.date.padEnd(dateWidth)}</Text>
                   <Text dimColor>{author.padEnd(authorWidth)}</Text>
@@ -143,12 +176,20 @@ export default function LogTab({ cursor, onCursorChange }: {
                   )}
                   {conventional && <Text dimColor>{(c.scope ?? '').padEnd(scopeWidth)}</Text>}
                   <Text color={selected ? 'white' : 'gray'}>{subject}</Text>
-                </Box>
-              );
-            })}
-          </Section>
-        </>
-      )}
+                </>);
+              }}
+            />
+            </Section>
+          </>
+        )}
+      </Box>
+      <FlashMessage flash={flash} />
+      <ActionBar item={cur === 0 && commits.length > 0 && !amendValues ? (filtered[cur] ?? null) : null} busy={loading || busy || !!amendValues || filterOpen}>
+        <Action binding="A"   label="amend HEAD" onAction={() => void openAmend()} />
+        <Action binding="r"   label="refresh"    onAction={() => void refresh()} requiresItem={false} />
+        <Action binding="f"   label="filter"     onAction={() => openFilter()} requiresItem={false} />
+        <Action binding="esc" label="quit"        onAction={() => exit()} requiresItem={false} />
+      </ActionBar>
     </Box>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { Section } from '../../components/Section.tsx';
+import { Table } from '../../components/Table.tsx';
 import { brandColor } from '../../styles.ts';
 import { useInputLock } from '../../contexts/InputLock.tsx';
 
@@ -38,21 +39,36 @@ function buildMessage(values: Record<TextField, string>, breaking: boolean): str
   return body ? `${header}\n\n${body}` : header;
 }
 
+export interface CommitValues {
+  type: string;
+  scope: string;
+  description: string;
+  body: string;
+  breaking: boolean;
+}
+
 function InputDisplay({ value, placeholder, focused }: { value: string; placeholder?: string; focused: boolean }) {
   if (focused) return <Text color="white">{value}█</Text>;
   if (value) return <Text>{value}</Text>;
   return <Text dimColor>{placeholder ?? ''}</Text>;
 }
 
-export default function CommitSheet({ onClose, onCommit, brand = false }: {
+export default function CommitSheet({ onClose, onCommit, brand = false, initialValues, amend = false }: {
   onClose: () => void;
   onCommit: (message: string) => void;
   brand?: boolean;
+  initialValues?: CommitValues;
+  amend?: boolean;
 }) {
   useInputLock();
   const [fieldIdx, setFieldIdx] = useState(0);
-  const [values, setValues] = useState<Record<TextField, string>>({ type: '', scope: '', description: '', body: '' });
-  const [breaking, setBreaking] = useState(false);
+  const [values, setValues] = useState<Record<TextField, string>>({
+    type: initialValues?.type ?? '',
+    scope: initialValues?.scope ?? '',
+    description: initialValues?.description ?? '',
+    body: initialValues?.body ?? '',
+  });
+  const [breaking, setBreaking] = useState(initialValues?.breaking ?? false);
   const [confirming, setConfirming] = useState(false);
 
   const field = ALL_FIELDS[fieldIdx]!;
@@ -61,7 +77,7 @@ export default function CommitSheet({ onClose, onCommit, brand = false }: {
 
   useInput((input, key) => {
     if (confirming) {
-      if (input === 'y' || input === 'Y') { onCommit(message); onClose(); }
+      if (input === 'y' || input === 'Y') { onCommit(message); }
       else { setConfirming(false); }
       return;
     }
@@ -94,7 +110,7 @@ export default function CommitSheet({ onClose, onCommit, brand = false }: {
     <Section borderColor={brandColor} paddingLeft={1} paddingRight={1}>
       <Box gap={1}>
         {brand && <><Text bold color={brandColor}>gitty 🐈</Text><Text dimColor>·</Text></>}
-        <Text bold color={brandColor}>COMMIT</Text>
+        <Text bold color={brandColor}>{amend ? 'AMEND' : 'COMMIT'}</Text>
       </Box>
 
       {confirming ? (
@@ -108,32 +124,21 @@ export default function CommitSheet({ onClose, onCommit, brand = false }: {
           </Box>
         </Box>
       ) : (
-        ALL_FIELDS.map((f, i) => {
-          const focused = i === fieldIdx;
-
-          if (f === 'description') {
-            return (
-              <Box key={f} flexDirection="column" marginTop={1}>
-                <Box gap={1}>
-                  <Text color={focused ? brandColor : 'gray'}>{focused ? '▶' : ' '}</Text>
-                  <Text color={focused ? 'white' : 'gray'}>{LABELS[f]}</Text>
-                  <InputDisplay value={values[f]} placeholder={PLACEHOLDERS[f]} focused={focused} />
-                </Box>
-              </Box>
-            );
-          }
-
-          return (
-            <Box key={f} gap={1}>
-              <Text color={focused ? brandColor : 'gray'}>{focused ? '▶' : ' '}</Text>
+        <Table
+          rows={ALL_FIELDS}
+          cursor={fieldIdx}
+          gap={1}
+          getKey={f => f}
+          renderRow={(f, focused) => (
+            <>
               <Text color={focused ? 'white' : 'gray'}>{LABELS[f]}</Text>
               {f === 'breaking'
                 ? <Text color={breaking ? 'red' : (focused ? 'white' : 'gray')}>{breaking ? '[x]' : '[ ]'}</Text>
-                : <InputDisplay value={values[f]} placeholder={PLACEHOLDERS[f]} focused={focused} />
+                : <InputDisplay value={values[f as TextField]} placeholder={PLACEHOLDERS[f as TextField]} focused={focused} />
               }
-            </Box>
-          );
-        })
+            </>
+          )}
+        />
       )}
     </Section>
   );

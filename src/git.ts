@@ -1,4 +1,7 @@
 import simpleGit from 'simple-git';
+import { type Brand } from './types.ts';
+
+export type RawCommitMessage = Brand<string, 'RawCommitMessage'>;
 
 const git = simpleGit();
 
@@ -177,8 +180,26 @@ export async function stashDrop(ref: string) {
   await git.stash(['drop', ref]);
 }
 
-export async function commit(message: string) {
-  await git.commit(message);
+export async function commit(message: string, amend = false) {
+  if (amend) {
+    await git.raw(['commit', '--amend', '-m', message]);
+  } else {
+    await git.commit(message);
+  }
+}
+
+export async function getLastCommitHash(): Promise<string> {
+  const result = await git.raw(['log', '-1', '--format=%h']);
+  return result.trim();
+}
+
+export async function getLastCommitMessage(): Promise<RawCommitMessage> {
+  const result = await git.raw(['log', '-1', '--format=%B']);
+  return result.trim() as RawCommitMessage;
+}
+
+export function extractCommitBody(message: RawCommitMessage): string {
+  return message.split('\n').slice(2).join('\n').trim();
 }
 
 export interface GitProgress {
@@ -227,6 +248,65 @@ export async function discard(file: GitFile) {
   } else {
     await git.checkout(['--', file.path]);
   }
+}
+
+export interface Worktree {
+  path: string;
+  head: string;
+  branch: string;   // short branch name, empty if detached
+  detached: boolean;
+  bare: boolean;
+  locked: boolean;
+  lockReason: string;
+  main: boolean;
+}
+
+export async function getWorktrees(): Promise<Worktree[]> {
+  const raw = await git.raw(['worktree', 'list', '--porcelain']);
+  const worktrees: Worktree[] = [];
+  let current: Partial<Worktree> | null = null;
+  let isFirst = true;
+
+  for (const line of raw.split('\n')) {
+    if (line.startsWith('worktree ')) {
+      if (current) worktrees.push(current as Worktree);
+      current = { path: line.slice(9), head: '', branch: '', detached: false, bare: false, locked: false, lockReason: '', main: isFirst };
+      isFirst = false;
+    } else if (line.startsWith('HEAD ') && current) {
+      current.head = line.slice(5, 12);
+    } else if (line.startsWith('branch ') && current) {
+      current.branch = line.slice(7).replace(/^refs\/heads\//, '');
+    } else if (line === 'detached' && current) {
+      current.detached = true;
+    } else if (line === 'bare' && current) {
+      current.bare = true;
+    } else if (line.startsWith('locked') && current) {
+      current.locked = true;
+      current.lockReason = line.length > 7 ? line.slice(7) : '';
+    }
+  }
+  if (current) worktrees.push(current as Worktree);
+  return worktrees.filter(w => w.path);
+}
+
+export async function removeWorktree(path: string, force = false) {
+  const args = ['worktree', 'remove', path];
+  if (force) args.push('--force');
+  await git.raw(args);
+}
+
+export async function pruneWorktrees() {
+  await git.raw(['worktree', 'prune']);
+}
+
+export async function lockWorktree(path: string, reason?: string) {
+  const args = ['worktree', 'lock', path];
+  if (reason) args.push('--reason', reason);
+  await git.raw(args);
+}
+
+export async function unlockWorktree(path: string) {
+  await git.raw(['worktree', 'unlock', path]);
 }
 
 export async function isGitRepo(): Promise<boolean> {

@@ -3,6 +3,7 @@ import { Box, Text } from 'ink';
 import { Section } from './Section.tsx';
 import { brandColor } from '../styles.ts';
 
+/** Displays the active filter query with a search icon and block cursor. */
 export function FilterBar({ query }: { query: string }) {
   return (
     <Section borderColor={brandColor} paddingLeft={1} paddingRight={1}>

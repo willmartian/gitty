@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text, useInput, useApp } from 'ink';
 import { type GitFile, type XY, getStatus, stage, stageAll, unstage, unstageAll, discard, commit, push, pull } from '../../git.ts';
 import { useTabState } from '../../hooks/useTabState.ts';
 import { FlashMessage } from '../../components/FlashMessage.tsx';
 import { StatusLine } from '../../components/StatusLine.tsx';
-import { Cursor } from '../../components/Cursor.tsx';
+import { Table } from '../../components/Table.tsx';
 import CommitSheet from './CommitSheet.tsx';
 import DiffViewer from './DiffViewer.tsx';
 import { Section } from '../../components/Section.tsx';
+import { ActionBar, Action } from '../../components/ActionBar.tsx';
 import { useLog } from '../../hooks/useLog.ts';
-import { useConfirm } from '../../hooks/useConfirm.tsx';
 
 type Section = 'changes' | 'staged';
 interface Item { section: Section; file: GitFile; idx: number }
@@ -38,14 +38,11 @@ function FileRow({ file, section, selected }: {
   const { label, color } = statusDisplay(code, untracked && section === 'changes');
   const name = file.origPath ? `${file.origPath} → ${file.path}` : file.path;
 
-  return (
-    <Box>
-      <Cursor selected={selected} />
-      <Text> </Text>
-      <Text color={color} bold={selected}>{label}</Text>
-      <Text color={selected ? 'white' : 'gray'}> {name}</Text>
-    </Box>
-  );
+  return (<>
+    <Text> </Text>
+    <Text color={color} bold={selected}>{label}</Text>
+    <Text color={selected ? 'white' : 'gray'}> {name}</Text>
+  </>);
 }
 
 function SectionHead({ label, count }: { label: string; count: number }) {
@@ -57,11 +54,11 @@ function SectionHead({ label, count }: { label: string; count: number }) {
   );
 }
 
-export default function StageTab({ cursor, onCursorChange, onRemoteOp }: {
-  cursor: number;
-  onCursorChange: (n: number) => void;
+export default function StageTab({ onRemoteOp }: {
   onRemoteOp?: () => void;
 }) {
+  const [cursor, setCursor] = useState(0);
+  const { exit } = useApp();
   const log = useLog();
 
   const [changes, setChanges] = useState<GitFile[]>([]);
@@ -92,8 +89,7 @@ export default function StageTab({ cursor, onCursorChange, onRemoteOp }: {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const { busy, flash, showFlash, runOp, runNetworkOp, progressMsg } = useTabState(refresh);
-  const { confirming, confirm, confirmEl } = useConfirm();
+  const { busy, flash, runOp, runNetworkOp, progressMsg } = useTabState(refresh);
 
   const items: Item[] = [
     ...staged.map((f, i): Item => ({ section: 'staged', file: f, idx: i })),
@@ -105,97 +101,74 @@ export default function StageTab({ cursor, onCursorChange, onRemoteOp }: {
   const sel = items[cur] ?? null;
 
   useInput((input, key) => {
-    if (busy || loading || commitOpen || diffTarget || confirming) return;
-
-    if (key.upArrow || input === 'k') { onCursorChange(Math.max(0, cursor - 1)); return; }
-    if (key.downArrow || input === 'j') { onCursorChange(Math.min(Math.max(0, totalItems - 1), cursor + 1)); return; }
-    if (input === 'r') { void refresh(); return; }
-
-    if (input === 'p') { log({ action: 'pushed', detail: 'origin' }); runNetworkOp((onProgress) => push(({ stage, progress }) => onProgress(stage, progress)), 'Pushed', onRemoteOp); return; }
-    if (input === 'P') { log({ action: 'pulled', detail: 'origin' }); runNetworkOp((onProgress) => pull(({ stage, progress }) => onProgress(stage, progress)), 'Pulled', onRemoteOp); return; }
-
-    if (!sel) return;
-    const { file, section } = sel;
-
-    if (input === ' ') {
-      if (section === 'changes') {
-        log({ action: 'staged', detail: file.path });
-        runOp(() => stage(file.path), `Staged: ${file.path}`);
-      } else {
-        log({ action: 'unstaged', detail: file.path });
-        runOp(() => unstage(file.path), `Unstaged: ${file.path}`);
-      }
-      return;
-    }
-
-    if ((input === 'd' || input === 'z') && section === 'changes') {
-      confirm(`Discard changes to ${file.path}?`, () => {
-        log({ action: 'discarded', detail: file.path });
-        runOp(() => discard(file), `Discarded: ${file.path}`);
-      });
-      return;
-    }
-
-    if (input === 'S') { log({ action: 'staged', detail: 'all changes' }); runOp(stageAll, 'Staged all changes'); return; }
-    if (input === 'U') { log({ action: 'unstaged', detail: 'all' }); runOp(unstageAll, 'Unstaged all'); return; }
-
-    if (input === 'c' && staged.length > 0) { openCommit(); return; }
-
-    if (key.return) { openDiff(file, section); return; }
+    if (busy || loading || commitOpen || !!diffTarget) return;
+    if (key.upArrow || input === 'k') { setCursor(Math.max(0, cursor - 1)); return; }
+    if (key.downArrow || input === 'j') { setCursor(Math.min(Math.max(0, totalItems - 1), cursor + 1)); return; }
   });
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" flexGrow={1}>
       {commitOpen && (
         <CommitSheet
           onClose={closeCommit}
-          onCommit={(msg) => { log({ action: 'committed', detail: msg.split('\n')[0]! }); runOp(() => commit(msg), 'Committed!', onRemoteOp); }}
+          onCommit={(msg) => { log({ action: 'committed', detail: msg.split('\n')[0]! }); closeCommit(); runOp(() => commit(msg), 'Committed!', onRemoteOp); }}
         />
       )}
-      <StatusLine error={error} loading={loading} progress={progressMsg} />
+      <Box flexGrow={1} flexDirection="column" overflow="hidden">
+        <StatusLine error={error} loading={loading} progress={progressMsg} />
 
-      {diffTarget && (
-        <DiffViewer
-          file={diffTarget.file}
-          section={diffTarget.section}
-          onClose={closeDiff}
-        />
-      )}
+        {diffTarget && (
+          <DiffViewer
+            file={diffTarget.file}
+            section={diffTarget.section}
+            onClose={closeDiff}
+          />
+        )}
 
-      {!diffTarget && !error && !loading && (
-        <>
-          <Section paddingLeft={1}>
-            <SectionHead label="STAGED" count={staged.length} />
-            {staged.length === 0
-              ? <Box paddingLeft={2}><Text dimColor>Nothing staged</Text></Box>
-              : staged.map((f, i) => (
-                  <FileRow key={`s:${f.path}`} file={f} section="staged"
-                    selected={!commitOpen && sel?.section === 'staged' && sel.idx === i} />
-                ))
-            }
-          </Section>
-
-          <Section paddingLeft={1}>
-            <SectionHead label="CHANGES" count={changes.length} />
-            {changes.length === 0
-              ? <Box paddingLeft={2}><Text dimColor>Clean</Text></Box>
-              : changes.map((f, i) => (
-                  <FileRow key={`c:${f.path}`} file={f} section="changes"
-                    selected={!commitOpen && sel?.section === 'changes' && sel.idx === i} />
-                ))
-            }
-          </Section>
-
-          {changes.length === 0 && staged.length === 0 && (
+        {!diffTarget && !error && !loading && (
+          <>
             <Section paddingLeft={1}>
-              <Text dimColor>No changes in working tree</Text>
+              <SectionHead label="STAGED" count={staged.length} />
+              <Table
+                rows={staged}
+                cursor={!commitOpen && sel?.section === 'staged' ? sel.idx : -1}
+                getKey={(f) => f.path}
+                empty="Nothing staged"
+                renderRow={(f, selected) => <FileRow file={f} section="staged" selected={selected} />}
+              />
             </Section>
-          )}
-        </>
-      )}
 
-      {confirmEl}
+            <Section paddingLeft={1}>
+              <SectionHead label="CHANGES" count={changes.length} />
+              <Table
+                rows={changes}
+                cursor={!commitOpen && sel?.section === 'changes' ? sel.idx : -1}
+                getKey={(f) => f.path}
+                empty="Clean"
+                renderRow={(f, selected) => <FileRow file={f} section="changes" selected={selected} />}
+              />
+            </Section>
+          </>
+        )}
+      </Box>
       <FlashMessage flash={flash} />
+      <ActionBar item={sel} busy={busy || loading || commitOpen || !!diffTarget}>
+        <Action binding="↵"     label="diff"           onAction={(s: Item) => openDiff(s.file, s.section)} />
+        <Action binding="space"  label="stage / unstage" onAction={(s: Item) => {
+          if (s.section === 'changes') { log({ action: 'staged',   detail: s.file.path }); runOp(() => stage(s.file.path),   `Staged: ${s.file.path}`); }
+          else                         { log({ action: 'unstaged', detail: s.file.path }); runOp(() => unstage(s.file.path), `Unstaged: ${s.file.path}`); }
+        }} />
+        <Action binding="d"     label="discard"        onAction={(s: Item) => { log({ action: 'discarded', detail: s.file.path }); runOp(() => discard(s.file), `Discarded: ${s.file.path}`); }}
+          disabled={(s: Item) => s.section !== 'changes' ? 'Nothing to discard' : null}
+          confirm={(s: Item) => `Discard changes to ${s.file.path}?`} />
+        <Action binding="S"     label="stage all"      onAction={() => { log({ action: 'staged',   detail: 'all changes' }); runOp(stageAll,   'Staged all changes'); }} requiresItem={false} />
+        <Action binding="U"     label="unstage all"    onAction={() => { log({ action: 'unstaged', detail: 'all' });          runOp(unstageAll, 'Unstaged all'); }}       requiresItem={false} />
+        <Action binding="c"     label="commit"         onAction={() => openCommit()} requiresItem={false}
+          disabled={() => staged.length === 0 ? 'Nothing staged' : null} />
+        <Action binding="p"     label="push"           onAction={() => { log({ action: 'pushed', detail: 'origin' }); runNetworkOp((onProgress) => push(({ stage, progress }) => onProgress(stage, progress)), 'Pushed', onRemoteOp); }} requiresItem={false} />
+        <Action binding="P"     label="pull"           onAction={() => { log({ action: 'pulled', detail: 'origin' }); runNetworkOp((onProgress) => pull(({ stage, progress }) => onProgress(stage, progress)), 'Pulled', onRemoteOp); }} requiresItem={false} />
+        <Action binding="esc"   label="quit"           onAction={() => exit()} requiresItem={false} />
+      </ActionBar>
     </Box>
   );
 }

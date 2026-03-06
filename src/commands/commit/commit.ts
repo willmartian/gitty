@@ -1,4 +1,5 @@
 import { defineCommand } from 'citty';
+import { createElement } from 'react';
 import CommitApp from './CommitApp.tsx';
 import { runUI } from '../../tui.ts';
 
@@ -7,7 +8,10 @@ export default defineCommand({
     name: 'commit',
     description: 'Write and create a commit',
   },
-  async run() {
-    await runUI(CommitApp, false);
+  args: {
+    amend: { type: 'boolean', description: 'Amend the last commit', default: false },
+  },
+  async run({ args }) {
+    await runUI(() => createElement(CommitApp, { amend: args.amend }), false);
   },
 });
